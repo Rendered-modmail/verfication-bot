@@ -55,6 +55,12 @@ const commands = [
         .setDescription("Target server ID. The bot must be in this server.")
         .setRequired(true)
     )
+    .addUserOption((option) =>
+      option
+        .setName("member")
+        .setDescription("Optional: choose one verified member to add instead of using amount.")
+        .setRequired(false)
+    )
 ].map((command) => command.toJSON());
 
 async function registerCommands() {
@@ -169,6 +175,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
       const amount = interaction.options.getInteger("amount", true);
       const targetGuildId = interaction.options.getString("server_id", true);
+      const selectedUser = interaction.options.getUser("member", false);
 
       if (!canTargetGuild(interaction.guildId, targetGuildId)) {
         await interaction.reply({
@@ -186,7 +193,13 @@ client.on(Events.InteractionCreate, async (interaction) => {
         return;
       }
 
-      const users = store.listUsers().slice(0, amount);
+      const selectedUserRecord = selectedUser ? store.getUser(selectedUser.id) : null;
+      if (selectedUser && !selectedUserRecord) {
+        await interaction.editReply(`${selectedUser.tag} has not completed OAuth verification yet.`);
+        return;
+      }
+
+      const users = selectedUser ? [selectedUserRecord] : store.listUsers().slice(0, amount);
       let added = 0;
       let alreadyInServer = 0;
       let failed = 0;
