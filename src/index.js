@@ -8,6 +8,9 @@ import {
   Events,
   GatewayIntentBits,
   PermissionFlagsBits,
+  REST,
+  Routes,
+  SlashCommandBuilder,
   StringSelectMenuBuilder
 } from "discord.js";
 import { config } from "./config.js";
@@ -20,6 +23,51 @@ const store = new JsonStore(config.dataFile);
 const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers]
 });
+
+const commands = [
+  new SlashCommandBuilder()
+    .setName("setupverify")
+    .setDescription("Send the verification dropdown panel.")
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
+    .addChannelOption((option) =>
+      option
+        .setName("channel")
+        .setDescription("Where to send the verification panel.")
+        .addChannelTypes(ChannelType.GuildText)
+        .setRequired(false)
+    ),
+  new SlashCommandBuilder()
+    .setName("sjoin")
+    .setDescription("Add consenting, authorized users to an allowed server.")
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+    .addIntegerOption((option) =>
+      option
+        .setName("amount")
+        .setDescription("Number of authorized users to try.")
+        .setMinValue(1)
+        .setMaxValue(100)
+        .setRequired(true)
+    )
+    .addStringOption((option) =>
+      option
+        .setName("server_id")
+        .setDescription("Target server ID. The bot must be in this server.")
+        .setRequired(true)
+    )
+].map((command) => command.toJSON());
+
+async function registerCommands() {
+  const rest = new REST({ version: "10" }).setToken(config.token);
+
+  if (config.commandGuildId) {
+    await rest.put(Routes.applicationGuildCommands(config.clientId, config.commandGuildId), { body: commands });
+    console.log(`Registered commands to guild ${config.commandGuildId}.`);
+    return;
+  }
+
+  await rest.put(Routes.applicationCommands(config.clientId), { body: commands });
+  console.log("Registered global commands.");
+}
 
 function buildOAuthUrl({ state }) {
   const params = new URLSearchParams({
@@ -183,6 +231,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 });
 
 await store.load();
+await registerCommands();
 await client.login(config.token);
 
 const server = createOAuthServer({ client, store });
