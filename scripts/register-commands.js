@@ -39,6 +39,12 @@ const commands = [
         .setDescription("Target server ID. The bot must be in this server.")
         .setRequired(true)
     )
+    .addUserOption((option) =>
+      option
+        .setName("member")
+        .setDescription("Optional: choose one verified member to add instead of using amount.")
+        .setRequired(false)
+    )
 ].map((command) => command.toJSON());
 
 const rest = new REST({ version: "10" }).setToken(token);
