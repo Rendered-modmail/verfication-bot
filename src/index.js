@@ -16,6 +16,7 @@ import {
 import { config } from "./config.js";
 import { addGuildMember, refreshAccessToken } from "./discordApi.js";
 import { createOAuthServer } from "./oauthServer.js";
+import { createOAuthState } from "./state.js";
 import { JsonStore } from "./store.js";
 
 const store = new JsonStore(config.dataFile);
@@ -142,11 +143,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
     if (interaction.isStringSelectMenu() && interaction.customId === "verify_select") {
       if (!interaction.values.includes("verify")) return;
 
-      const state = store.createState({
+      const state = createOAuthState({
         discordUserId: interaction.user.id,
         guildId: interaction.guildId
       });
-      await store.save();
 
       const button = new ButtonBuilder()
         .setLabel("Authorize verification")
