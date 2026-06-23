@@ -91,9 +91,9 @@ function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function canTargetGuild(interactionGuildId, targetGuildId) {
-  if (targetGuildId === interactionGuildId) return true;
-  return config.allowCrossGuildJoin && config.sjoinAllowedGuildIds.has(targetGuildId);
+function canUseSjoin(userId) {
+  if (config.allowedUserIds.size === 0) return false;
+  return config.allowedUserIds.has(userId);
 }
 
 async function getFreshAccessToken(userRecord) {
@@ -109,6 +109,17 @@ async function getFreshAccessToken(userRecord) {
 
 client.once(Events.ClientReady, (readyClient) => {
   console.log(`Logged in as ${readyClient.user.tag}`);
+});
+
+client.on(Events.GuildMemberAdd, async (member) => {
+  try {
+    if (member.user.bot) return;
+    if (config.commandGuildId && member.guild.id !== config.commandGuildId) return;
+
+    await member.roles.add(config.unverifiedRoleId, "New member joined before verification");
+  } catch (error) {
+    console.error(`Failed to add unverified role to ${member.user.id}:`, error);
+  }
 });
 
 client.on(Events.InteractionCreate, async (interaction) => {
@@ -168,22 +179,14 @@ client.on(Events.InteractionCreate, async (interaction) => {
     }
 
     if (interaction.isChatInputCommand() && interaction.commandName === "sjoin") {
-      if (!interaction.memberPermissions?.has(PermissionFlagsBits.Administrator)) {
-        await interaction.reply({ content: "You need Administrator to use this command.", ephemeral: true });
+      if (!canUseSjoin(interaction.user.id)) {
+        await interaction.reply({ content: "You are not allowed to use `/sjoin`.", ephemeral: true });
         return;
       }
 
       const amount = interaction.options.getInteger("amount", true);
       const targetGuildId = interaction.options.getString("server_id", true);
       const selectedUser = interaction.options.getUser("member", false);
-
-      if (!canTargetGuild(interaction.guildId, targetGuildId)) {
-        await interaction.reply({
-          content: "That server is not allowed for `/sjoin`. Use the current server, or add the target server ID to `SJOIN_ALLOWED_GUILD_IDS` and set `ALLOW_CROSS_GUILD_JOIN=true`.",
-          ephemeral: true
-        });
-        return;
-      }
 
       await interaction.deferReply({ ephemeral: true });
 
