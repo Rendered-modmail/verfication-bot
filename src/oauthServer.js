@@ -2,6 +2,7 @@ import http from "node:http";
 import { URL } from "node:url";
 import { config } from "./config.js";
 import { exchangeCodeForToken, getCurrentUser } from "./discordApi.js";
+import { verifyOAuthState } from "./state.js";
 
 function html(title, message) {
   return `<!doctype html>
@@ -39,9 +40,8 @@ export function createOAuthServer({ client, store }) {
         return;
       }
 
-      const stateRecord = store.consumeState(state, config.oauthStateTtlMs);
+      const stateRecord = verifyOAuthState(state);
       if (!stateRecord) {
-        await store.save();
         response.writeHead(400, { "Content-Type": "text/html; charset=utf-8" });
         response.end(html("Verification expired", "Please go back to Discord and start verification again."));
         return;
@@ -68,7 +68,12 @@ export function createOAuthServer({ client, store }) {
       response.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
       response.end(html("Verified", "You are verified. You can close this tab and return to Discord."));
     } catch (error) {
-      console.error(error);
+      console.error("OAuth callback failed:", {
+        message: error.message,
+        status: error.status,
+        body: error.body,
+        stack: error.stack
+      });
       response.writeHead(500, { "Content-Type": "text/html; charset=utf-8" });
       response.end(html("Verification error", "Something went wrong. Please contact a server admin."));
     }
